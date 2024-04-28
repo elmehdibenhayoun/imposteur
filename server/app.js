@@ -4,7 +4,6 @@ require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { getRandomSubject, getRandomWords } = require("./model/randomWords");
-const { findByPassword } = require("./model/room");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -54,15 +53,14 @@ io.on("connection", (socket) => {
   });
 
   //join room
-  socket.on("joinRoom", async ({ nickname, password }) => {
-    console.log(`nickname : ${nickname} , password : ${password}`);
+  socket.on("joinRoom", async ({ nickname, roomId }) => {
+    console.log(`nickname : ${nickname} , roomId : ${roomId}`);
     try {
-      // if (!roomId.match(/^[0-9a-fA-F]{24}$/)) {
-      //   socket.emit("errorOccurred", "Please enter a valid room ID.");
-      //   return;
-      // }
-      let room = await Room.findOne({ password: password });
-      let roomId = room._id;
+      if (!roomId.match(/^[0-9a-fA-F]{24}$/)) {
+        socket.emit("errorOccurred", "Please enter a valid room ID.");
+        return;
+      }
+      let room = await Room.findById(roomId);
       if (room.occupancy == room.players.length) {
         room.isJoin = 0;
       }
@@ -187,6 +185,46 @@ io.on("connection", (socket) => {
       //io.to(roomId).emit("updatePlayers", room.players);
     } catch (error) {
       console.error("Erreur lors du démarrage du jeu :", error);
+    }
+  });
+
+  socket.on("resultat", async (roomId) => {
+    try {
+      const room = await Room.findById(roomId);
+
+      if (!room) {
+        console.error("La salle n'existe pas.");
+        return;
+      }
+
+      // Récupérez le joueur cible (Mr. White)
+      const targetPlayer = room.players.find((player) => player.isMrWhite);
+
+      // Comptez les votes pour et contre le joueur cible
+      const votesForTarget = room.players.filter(
+        (player) => player.votes === targetPlayer.nickName
+      ).length;
+      const votesAgainstTarget = room.players.filter(
+        (player) => player.votes !== targetPlayer.nickName
+      ).length;
+
+      let resultMessage = "";
+
+      // Déterminez le résultat en fonction de la majorité
+      if (votesForTarget > votesAgainstTarget) {
+        resultMessage = `${targetPlayer.nickName} perd`;
+      } else {
+        resultMessage = `${targetPlayer.nickName} gagne`;
+      }
+
+      // Enregistrez le résultat dans la base de données ou effectuez d'autres actions nécessaires
+
+      // Émettez un événement pour informer les clients du résultat
+      io.to(roomId).emit("resultat", resultMessage);
+      io.to(roomId).emit("updateRoom", room);
+      io.to(roomId).emit("updatePlayers", room.players);
+    } catch (error) {
+      console.error("Erreur lors du calcul du résultat :", error);
     }
   });
 });

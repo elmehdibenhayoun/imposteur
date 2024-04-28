@@ -9,6 +9,7 @@ class GameController extends GetxController {
   final _socketClient = SocketClient.instance.socket!;
   Rx<String?> currentRoomId = Rx<String?>(null);
   RxList<Player> players = <Player>[].obs;
+  
   RxList<Room> rooms = <Room>[].obs;
   Rx<Player?> currentPlayer = Rx<Player?>(null);
   List<bool> playersCheckedState = [];
@@ -62,25 +63,50 @@ class GameController extends GetxController {
   //   });
   // }
 
-  void updatePlayersList(dynamic playersData) {
-    if (playersData is List) {
-      List<Player> updatedPlayers = [];
+  // void updatePlayersList(dynamic playersData) {
+  //   if (playersData is List) {
+  //     List<Player> updatedPlayers = [];
 
-      for (var playerData in playersData) {
-        if (playerData is Map<String, dynamic>) {
-          updatedPlayers.add(Player.fromJson(playerData));
-        } else if (playerData is Player) {
-          updatedPlayers.add(playerData);
-        } else {
-          print('Données du joueur au format incorrect : $playerData');
-        }
+  //     for (var playerData in playersData) {
+  //       if (playerData is Map<String, dynamic>) {
+  //         updatedPlayers.add(Player.fromJson(playerData));
+  //       } else if (playerData is Player) {
+  //         updatedPlayers.add(playerData);
+  //       } else {
+  //         print('Données du joueur au format incorrect : $playerData');
+  //       }
+  //     }
+
+  //     players.assignAll(updatedPlayers);
+  //   } else {
+  //     print('Données des joueurs au format incorrect : $playersData');
+  //   }
+  // }
+void updatePlayersList(dynamic playersData) {
+  print('Received players data: $playersData');
+
+  if (playersData is List) {
+    List<Player> updatedPlayers = [];
+
+    for (var playerData in playersData) {
+      print('Processing player data: $playerData');
+      if (playerData is Map<String, dynamic>) {
+        updatedPlayers.add(Player.fromJson(playerData));
+      } else if (playerData is Player) {
+        updatedPlayers.add(playerData);
+      } else {
+        print('Invalid player data format: $playerData');
       }
-
-      players.assignAll(updatedPlayers);
-    } else {
-      print('Données des joueurs au format incorrect : $playersData');
     }
+
+    // Mettez à jour la liste players du GameController
+    GameController.instance.players.assignAll(updatedPlayers);
+  } else {
+    print('Invalid players data format: $playersData');
   }
+}
+
+
 
   void updateCurrentPlayer(Player player) {
     currentPlayer.value = player;
@@ -114,6 +140,9 @@ class GameController extends GetxController {
   void updatePlayer(String roomId, Map<String, dynamic> player) {
     _socketClient.emit('updatePlayer', {'roomId': roomId, 'player': player});
   }
+  void resultat(String roomId) {
+    _socketClient.emit('resultat', {'roomId': roomId});
+  }
 
   void checkReadyPlayer(String roomId) {
     _socketClient.emit('checkReadyPlayer', {'roomId': roomId});
@@ -127,7 +156,7 @@ class GameController extends GetxController {
 
   void joinRoom(String nickName, String password) {
     if (nickName.isNotEmpty && password.isNotEmpty) {
-      _socketClient.emit('joinRoom', {'nickname': nickName, 'password': password});
+      _socketClient.emit('joinRoom', {'nickname': nickName, 'roomId': password});
     }
   }
 
@@ -137,6 +166,12 @@ class GameController extends GetxController {
       Player player = Player.fromJson(room['players'][0]);
       updateCurrentPlayer(player);
       updateCurrentRoomId(room['_id']);
+    });
+  }
+  void resultatSuccessListener(Function(dynamic) callback) {
+    _socketClient.on('resultat', (data) {
+      callback(data);
+      
     });
   }
 

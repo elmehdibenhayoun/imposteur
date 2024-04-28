@@ -18,9 +18,9 @@ const roomSchema = new mongoose.Schema({
   },
 }
 );
-findByPassword = async function (password) {
-  return this.findOne({ password: new RegExp(password, 'i') }).exec();
-};
+// findByPassword = async function (password) {
+//   return this.findOne({ password: new RegExp(password, 'i') }).exec();
+// };
 
 module.exports = mongoose.model("Room", roomSchema);
 
